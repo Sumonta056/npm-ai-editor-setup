@@ -1,0 +1,25 @@
+{
+  "name": "ai-editor-setup",
+  "version": "1.0.0",
+  "description": "Automatically creates a folder structure when installed",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "keywords": [
+    "editor",
+    "setup",
+    "automation"
+  ],
+  "author": "Sumonta Saha <sumontasaha80@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sumonta056/ai-editor-setup.git"
+  },
+  "files": [
+    "scripts",
+    "templates",
+    "index.js"
+  ]
+}

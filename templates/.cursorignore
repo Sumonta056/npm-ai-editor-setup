@@ -1,0 +1,14 @@
+.swc
+gitops
+manifests
+.dockerignore
+Dockerfile
+VERSION
+node_modules
+.env
+.env.local
+dist
+build
+coverage
+*.log
+.DS_Store

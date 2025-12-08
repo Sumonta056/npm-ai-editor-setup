@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "assistant": {
+    "name": "AI Assistant",
+    "enabled": true,
+    "autoSuggest": true
+  },
+  "codeGeneration": {
+    "style": "modern",
+    "includeComments": true,
+    "includeTests": false,
+    "preferTypeScript": true
+  },
+  "codeReview": {
+    "enabled": true,
+    "checkStyle": true,
+    "checkPerformance": true,
+    "checkSecurity": true
+  },
+  "context": {
+    "includeFiles": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx"
+    ],
+    "excludeFiles": [
+      "node_modules/**",
+      ".git/**",
+      "dist/**",
+      "build/**",
+      "*.test.*",
+      "*.spec.*"
+    ]
+  }
+}

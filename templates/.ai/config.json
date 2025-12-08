@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "settings": {
+    "model": "default",
+    "temperature": 0.7,
+    "maxTokens": 2000,
+    "contextWindow": 8000
+  },
+  "prompts": {
+    "default": "You are a helpful AI assistant.",
+    "codeReview": "Review this code for bugs, performance issues, and best practices.",
+    "documentation": "Generate clear and concise documentation for this code."
+  },
+  "excludePatterns": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "*.log"
+  ]
+}

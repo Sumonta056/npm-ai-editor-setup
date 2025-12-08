@@ -1,0 +1,20 @@
+# Core Development Rules
+
+## Code Style
+- Follow consistent code style and formatting
+- Use meaningful variable and function names
+- Write self-documenting code with clear intent
+
+## Best Practices
+- Write clean, maintainable code
+- Follow DRY (Don't Repeat Yourself) principles
+- Implement proper error handling
+- Add comments for complex logic
+
+## Testing
+- Write tests for critical functionality
+- Ensure code is testable and modular
+
+## Documentation
+- Update documentation when making significant changes
+- Keep README files up to date

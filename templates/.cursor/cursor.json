@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "rules": {
+    "enabled": true,
+    "rulesDirectory": ".cursor/rules"
+  },
+  "context": {
+    "includePatterns": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json",
+      "**/*.md"
+    ],
+    "excludePatterns": [
+      "node_modules/**",
+      ".git/**",
+      "dist/**",
+      "build/**"
+    ]
+  }
+}
