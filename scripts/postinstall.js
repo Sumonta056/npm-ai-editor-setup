@@ -1,44 +1,42 @@
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 
 // Get the root directory where the package is installed
-// INIT_CWD is set by npm/yarn/pnpm to the directory where install was run
-// This is the most reliable way to get the project root during postinstall
 let projectRoot = process.env.INIT_CWD;
 
-// Fallback: if INIT_CWD is not set, walk up from current directory to find project root
 if (!projectRoot) {
   let currentDir = process.cwd();
-  
-  // Walk up to find directory with package.json (but not in node_modules)
   for (let i = 0; i < 10; i++) {
     const packageJsonPath = path.join(currentDir, 'package.json');
-    
-    // If we find package.json and we're not in node_modules, this is likely the project root
     if (fs.existsSync(packageJsonPath) && !currentDir.includes('node_modules')) {
       projectRoot = currentDir;
       break;
     }
-    
     const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) break; // Reached filesystem root
+    if (parentDir === currentDir) break;
     currentDir = parentDir;
   }
-  
-  // Final fallback to current working directory
   if (!projectRoot) {
     projectRoot = process.cwd();
   }
 }
 
-// Normalize the path to absolute path
 projectRoot = path.resolve(projectRoot);
-
-// Get the template directory path
-// When installed, the package is in node_modules/ai-editor-setup
-// Templates are in node_modules/ai-editor-setup/templates
 const packageDir = __dirname.replace(/[\\/]scripts$/, '');
 const templatesDir = path.join(packageDir, 'templates');
+
+// Editor to folder mapping
+const editorMap = {
+  cursor: ['.cursor', '.cursorignore'],
+  claude: ['.ai'],
+  vscode: ['.vscode','.github'],
+  intellij: ['.idea'],
+  windsurf: ['.windsurf']
+};
+
+// Common files that should always be included
+const commonFiles = [, '.gitignore'];
 
 // Function to copy a file
 function copyFile(src, dest) {
@@ -46,7 +44,6 @@ function copyFile(src, dest) {
   if (!fs.existsSync(destDir)) {
     fs.mkdirSync(destDir, { recursive: true });
   }
-  
   if (!fs.existsSync(dest)) {
     fs.copyFileSync(src, dest);
     return true;
@@ -63,24 +60,20 @@ function copyDirectory(src, dest, createdFiles = []) {
   const stats = fs.statSync(src);
   
   if (stats.isDirectory()) {
-    // Create destination directory if it doesn't exist
     const dirCreated = !fs.existsSync(dest);
     if (dirCreated) {
       fs.mkdirSync(dest, { recursive: true });
     }
     
-    // Read all files and directories
     const entries = fs.readdirSync(src);
     
     entries.forEach(entry => {
       const srcPath = path.join(src, entry);
       const destPath = path.join(dest, entry);
-      
       const entryStats = fs.statSync(srcPath);
       
       if (entryStats.isDirectory()) {
         const result = copyDirectory(srcPath, destPath, createdFiles);
-        // Merge created files from subdirectory
         result.createdFiles.forEach(file => {
           if (!createdFiles.includes(file)) {
             createdFiles.push(file);
@@ -89,7 +82,6 @@ function copyDirectory(src, dest, createdFiles = []) {
       } else {
         const fileCreated = copyFile(srcPath, destPath);
         if (fileCreated) {
-          // Get relative path from project root for display
           const relativePath = path.relative(projectRoot, destPath);
           createdFiles.push(relativePath);
         }
@@ -107,56 +99,126 @@ function copyDirectory(src, dest, createdFiles = []) {
   }
 }
 
-console.log(`\n📦 ai-editor-setup: Setting up Cursor configuration in ${projectRoot}\n`);
+// Function to prompt user for editor selection
+function promptEditorSelection() {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
 
-// Copy everything from templates folder
-if (!fs.existsSync(templatesDir)) {
-  console.log(`⚠ Warning: Templates folder not found at ${templatesDir}`);
-  console.log(`\n✅ Setup completed (no templates to copy)\n`);
-  process.exit(0);
-}
+    console.log('\n📦 ai-editor-setup: Select which editor configuration(s) you want to install:\n');
+    console.log('1. Cursor');
+    console.log('2. Claude');
+    console.log('3. VS Code');
+    console.log('4. IntelliJ IDEA');
+    console.log('5. Windsurf');
+    console.log('6. All editors');
+    console.log('\nEnter numbers separated by commas (e.g., 1,3,5) or press Enter for all:');
 
-const createdFiles = [];
-const entries = fs.readdirSync(templatesDir);
-
-if (entries.length === 0) {
-  console.log(`✓ Templates folder is empty (nothing to copy)`);
-  console.log(`\n✅ Setup completed successfully!\n`);
-  process.exit(0);
-}
-
-entries.forEach(entry => {
-  const srcPath = path.join(templatesDir, entry);
-  const destPath = path.join(projectRoot, entry);
-  
-  const stats = fs.statSync(srcPath);
-  
-  if (stats.isDirectory()) {
-    const result = copyDirectory(srcPath, destPath, createdFiles);
-    // Merge created files from subdirectory
-    result.createdFiles.forEach(file => {
-      if (!createdFiles.includes(file)) {
-        createdFiles.push(file);
+    rl.question('> ', (answer) => {
+      rl.close();
+      
+      const selected = [];
+      if (!answer.trim()) {
+        // Default to all
+        selected.push('cursor', 'claude', 'vscode', 'intellij', 'windsurf');
+      } else {
+        const choices = answer.split(',').map(c => c.trim());
+        if (choices.includes('6')) {
+          selected.push('cursor', 'claude', 'vscode', 'intellij', 'windsurf');
+        } else {
+          choices.forEach(choice => {
+            if (choice === '1') selected.push('cursor');
+            else if (choice === '2') selected.push('claude');
+            else if (choice === '3') selected.push('vscode');
+            else if (choice === '4') selected.push('intellij');
+            else if (choice === '5') selected.push('windsurf');
+          });
+        }
       }
+      
+      resolve(selected);
+    });
+  });
+}
+
+// Main installation function
+async function install() {
+  if (!fs.existsSync(templatesDir)) {
+    console.log(`⚠ Warning: Templates folder not found at ${templatesDir}`);
+    console.log(`\n✅ Setup completed (no templates to copy)\n`);
+    process.exit(0);
+  }
+
+  // Prompt for editor selection
+  const selectedEditors = await promptEditorSelection();
+
+  if (selectedEditors.length === 0) {
+    console.log('\n⚠ No editors selected. Setup cancelled.\n');
+    process.exit(0);
+  }
+
+  console.log(`\n📦 Installing configuration for: ${selectedEditors.join(', ')}\n`);
+
+  // Collect all folders to copy
+  const foldersToCopy = new Set();
+  
+  // Add selected editor folders
+  selectedEditors.forEach(editor => {
+    if (editorMap[editor]) {
+      editorMap[editor].forEach(folder => {
+        foldersToCopy.add(folder);
+      });
+    }
+  });
+
+  // Always add common files
+  commonFiles.forEach(file => {
+    foldersToCopy.add(file);
+  });
+
+  const createdFiles = [];
+
+  // Copy selected folders
+  foldersToCopy.forEach(folder => {
+    const srcPath = path.join(templatesDir, folder);
+    const destPath = path.join(projectRoot, folder);
+    
+    if (fs.existsSync(srcPath)) {
+      const stats = fs.statSync(srcPath);
+      if (stats.isDirectory()) {
+        const result = copyDirectory(srcPath, destPath, createdFiles);
+        result.createdFiles.forEach(file => {
+          if (!createdFiles.includes(file)) {
+            createdFiles.push(file);
+          }
+        });
+      } else {
+        const fileCreated = copyFile(srcPath, destPath);
+        if (fileCreated) {
+          const relativePath = path.relative(projectRoot, destPath);
+          createdFiles.push(relativePath);
+        }
+      }
+    }
+  });
+
+  if (createdFiles.length > 0) {
+    console.log(`✓ Created ${createdFiles.length} file(s)/folder(s):`);
+    createdFiles.forEach(file => {
+      console.log(`  - ${file}`);
     });
   } else {
-    const fileCreated = copyFile(srcPath, destPath);
-    if (fileCreated) {
-      const relativePath = path.relative(projectRoot, destPath);
-      createdFiles.push(relativePath);
-    }
+    console.log(`✓ All template files already exist (preserving existing files)`);
   }
-});
 
-if (createdFiles.length > 0) {
-  console.log(`✓ Created ${createdFiles.length} file(s)/folder(s):`);
-  createdFiles.forEach(file => {
-    console.log(`  - ${file}`);
-  });
-} else {
-  console.log(`✓ All template files already exist (preserving existing files)`);
+  console.log(`\n✅ Setup completed successfully!\n`);
 }
 
-console.log(`\n✅ Setup completed successfully!\n`);
+install().catch(err => {
+  console.error('Error during installation:', err);
+  process.exit(1);
+});
 
 

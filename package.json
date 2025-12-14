@@ -1,6 +1,6 @@
 {
   "name": "ai-editor-setup",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatically creates a folder structure when installed",
   "main": "index.js",
   "scripts": {
@@ -15,7 +15,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sumonta056/ai-editor-setup.git"
+    "url": "https://github.com/Sumonta056/npm-ai-editor-setup"
   },
   "files": [
     "scripts",

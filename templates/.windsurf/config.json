@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "settings": {
+    "model": "default",
+    "temperature": 0.7,
+    "maxTokens": 2000
+  },
+  "context": {
+    "includePatterns": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json",
+      "**/*.md"
+    ],
+    "excludePatterns": [
+      "node_modules/**",
+      ".git/**",
+      "dist/**",
+      "build/**"
+    ]
+  }
+}
