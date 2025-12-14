@@ -2,43 +2,132 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-// Get the root directory where the package is installed
-let projectRoot = process.env.INIT_CWD;
+// ============================================================================
+// CONFIGURATION - Add new editors here easily
+// ============================================================================
 
-if (!projectRoot) {
-  let currentDir = process.cwd();
-  for (let i = 0; i < 10; i++) {
-    const packageJsonPath = path.join(currentDir, 'package.json');
-    if (fs.existsSync(packageJsonPath) && !currentDir.includes('node_modules')) {
-      projectRoot = currentDir;
-      break;
-    }
-    const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) break;
-    currentDir = parentDir;
+/**
+ * Editor Configuration
+ * 
+ * To add a new editor:
+ * 1. Create the template folder/files in templates/ directory
+ * 2. Add a new entry to this array with:
+ *    - id: unique identifier (lowercase, no spaces)
+ *    - name: display name shown to users
+ *    - folders: array of folder/file names from templates/ to copy
+ * 
+ * Example:
+ * {
+ *   id: 'neovim',
+ *   name: 'Neovim',
+ *   folders: ['.nvim', '.nvimrc']
+ * }
+ * 
+ * That's it! The rest is handled automatically.
+ * 
+ * @property {string} id - Unique identifier (lowercase, no spaces)
+ * @property {string} name - Display name shown to users
+ * @property {string[]} folders - Array of folder/file names in templates/ to copy
+ */
+const EDITOR_CONFIG = [
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    folders: ['.cursor', '.cursorignore']
+  },
+  {
+    id: 'claude',
+    name: 'Claude',
+    folders: ['.ai']
+  },
+  {
+    id: 'vscode',
+    name: 'VS Code',
+    folders: ['.vscode', '.github']
+  },
+  {
+    id: 'intellij',
+    name: 'IntelliJ IDEA',
+    folders: ['.idea']
+  },
+  {
+    id: 'windsurf',
+    name: 'Windsurf',
+    folders: ['.windsurf']
   }
+];
+
+/**
+ * Common files that should always be included regardless of editor selection
+ */
+const COMMON_FILES = ['.gitignore'];
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Get the project root directory where the package is installed
+ */
+function getProjectRoot() {
+  let projectRoot = process.env.INIT_CWD;
+
   if (!projectRoot) {
-    projectRoot = process.cwd();
+    let currentDir = process.cwd();
+    for (let i = 0; i < 10; i++) {
+      const packageJsonPath = path.join(currentDir, 'package.json');
+      if (fs.existsSync(packageJsonPath) && !currentDir.includes('node_modules')) {
+        projectRoot = currentDir;
+        break;
+      }
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) break;
+      currentDir = parentDir;
+    }
+    if (!projectRoot) {
+      projectRoot = process.cwd();
+    }
   }
+
+  return path.resolve(projectRoot);
 }
 
-projectRoot = path.resolve(projectRoot);
+/**
+ * Get editor configuration by ID
+ */
+function getEditorById(id) {
+  return EDITOR_CONFIG.find(editor => editor.id === id);
+}
+
+/**
+ * Get all editor IDs
+ */
+function getAllEditorIds() {
+  return EDITOR_CONFIG.map(editor => editor.id);
+}
+
+/**
+ * Get editor display names for prompt
+ */
+function getEditorDisplayList() {
+  return EDITOR_CONFIG.map((editor, index) => `${index + 1}. ${editor.name}`);
+}
+
+// Initialize paths
+const projectRoot = getProjectRoot();
 const packageDir = __dirname.replace(/[\\/]scripts$/, '');
 const templatesDir = path.join(packageDir, 'templates');
 
-// Editor to folder mapping
-const editorMap = {
-  cursor: ['.cursor', '.cursorignore'],
-  claude: ['.ai'],
-  vscode: ['.vscode','.github'],
-  intellij: ['.idea'],
-  windsurf: ['.windsurf']
-};
+// ============================================================================
+// FILE OPERATIONS
+// ============================================================================
 
-// Common files that should always be included
-const commonFiles = [, '.gitignore'];
-
-// Function to copy a file
+/**
+ * Copy a single file from source to destination
+ * @param {string} src - Source file path
+ * @param {string} dest - Destination file path
+ * @returns {boolean} - True if file was created, false if it already existed
+ */
 function copyFile(src, dest) {
   const destDir = path.dirname(dest);
   if (!fs.existsSync(destDir)) {
@@ -51,7 +140,13 @@ function copyFile(src, dest) {
   return false;
 }
 
-// Function to copy a directory recursively
+/**
+ * Copy a directory recursively from source to destination
+ * @param {string} src - Source directory path
+ * @param {string} dest - Destination directory path
+ * @param {string[]} createdFiles - Array to track created files
+ * @returns {{success: boolean, createdFiles: string[]}}
+ */
 function copyDirectory(src, dest, createdFiles = []) {
   if (!fs.existsSync(src)) {
     return { success: false, createdFiles };
@@ -99,7 +194,14 @@ function copyDirectory(src, dest, createdFiles = []) {
   }
 }
 
-// Function to prompt user for editor selection
+// ============================================================================
+// USER INTERACTION
+// ============================================================================
+
+/**
+ * Prompt user to select which editors to install
+ * @returns {Promise<string[]>} - Array of selected editor IDs
+ */
 function promptEditorSelection() {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
@@ -107,33 +209,40 @@ function promptEditorSelection() {
       output: process.stdout
     });
 
+    const allOptionNumber = EDITOR_CONFIG.length + 1;
+    const editorList = getEditorDisplayList();
+
     console.log('\n📦 ai-editor-setup: Select which editor configuration(s) you want to install:\n');
-    console.log('1. Cursor');
-    console.log('2. Claude');
-    console.log('3. VS Code');
-    console.log('4. IntelliJ IDEA');
-    console.log('5. Windsurf');
-    console.log('6. All editors');
+    editorList.forEach(item => console.log(item));
+    console.log(`${allOptionNumber}. All editors`);
     console.log('\nEnter numbers separated by commas (e.g., 1,3,5) or press Enter for all:');
 
     rl.question('> ', (answer) => {
       rl.close();
       
       const selected = [];
-      if (!answer.trim()) {
-        // Default to all
-        selected.push('cursor', 'claude', 'vscode', 'intellij', 'windsurf');
+      const answerTrimmed = answer.trim();
+      
+      if (!answerTrimmed) {
+        // Default to all editors
+        selected.push(...getAllEditorIds());
       } else {
-        const choices = answer.split(',').map(c => c.trim());
-        if (choices.includes('6')) {
-          selected.push('cursor', 'claude', 'vscode', 'intellij', 'windsurf');
+        const choices = answerTrimmed.split(',').map(c => c.trim());
+        const allOption = String(allOptionNumber);
+        
+        if (choices.includes(allOption)) {
+          // User selected "All editors"
+          selected.push(...getAllEditorIds());
         } else {
+          // Parse individual selections
           choices.forEach(choice => {
-            if (choice === '1') selected.push('cursor');
-            else if (choice === '2') selected.push('claude');
-            else if (choice === '3') selected.push('vscode');
-            else if (choice === '4') selected.push('intellij');
-            else if (choice === '5') selected.push('windsurf');
+            const index = parseInt(choice, 10) - 1;
+            if (index >= 0 && index < EDITOR_CONFIG.length) {
+              const editor = EDITOR_CONFIG[index];
+              if (editor && !selected.includes(editor.id)) {
+                selected.push(editor.id);
+              }
+            }
           });
         }
       }
@@ -143,44 +252,46 @@ function promptEditorSelection() {
   });
 }
 
-// Main installation function
-async function install() {
-  if (!fs.existsSync(templatesDir)) {
-    console.log(`⚠ Warning: Templates folder not found at ${templatesDir}`);
-    console.log(`\n✅ Setup completed (no templates to copy)\n`);
-    process.exit(0);
-  }
+// ============================================================================
+// INSTALLATION LOGIC
+// ============================================================================
 
-  // Prompt for editor selection
-  const selectedEditors = await promptEditorSelection();
-
-  if (selectedEditors.length === 0) {
-    console.log('\n⚠ No editors selected. Setup cancelled.\n');
-    process.exit(0);
-  }
-
-  console.log(`\n📦 Installing configuration for: ${selectedEditors.join(', ')}\n`);
-
-  // Collect all folders to copy
+/**
+ * Get all folders that need to be copied based on selected editors
+ * @param {string[]} selectedEditorIds - Array of selected editor IDs
+ * @returns {Set<string>} - Set of folder/file names to copy
+ */
+function getFoldersToCopy(selectedEditorIds) {
   const foldersToCopy = new Set();
   
-  // Add selected editor folders
-  selectedEditors.forEach(editor => {
-    if (editorMap[editor]) {
-      editorMap[editor].forEach(folder => {
+  // Add folders from selected editors
+  selectedEditorIds.forEach(editorId => {
+    const editor = getEditorById(editorId);
+    if (editor) {
+      editor.folders.forEach(folder => {
         foldersToCopy.add(folder);
       });
     }
   });
 
   // Always add common files
-  commonFiles.forEach(file => {
-    foldersToCopy.add(file);
+  COMMON_FILES.forEach(file => {
+    if (file) { // Filter out empty strings
+      foldersToCopy.add(file);
+    }
   });
 
+  return foldersToCopy;
+}
+
+/**
+ * Copy template files to project root
+ * @param {Set<string>} foldersToCopy - Set of folder/file names to copy
+ * @returns {string[]} - Array of created file paths (relative to project root)
+ */
+function copyTemplateFiles(foldersToCopy) {
   const createdFiles = [];
 
-  // Copy selected folders
   foldersToCopy.forEach(folder => {
     const srcPath = path.join(templatesDir, folder);
     const destPath = path.join(projectRoot, folder);
@@ -204,6 +315,53 @@ async function install() {
     }
   });
 
+  return createdFiles;
+}
+
+/**
+ * Get display names for selected editors
+ * @param {string[]} selectedEditorIds - Array of selected editor IDs
+ * @returns {string[]} - Array of editor display names
+ */
+function getSelectedEditorNames(selectedEditorIds) {
+  return selectedEditorIds
+    .map(id => {
+      const editor = getEditorById(id);
+      return editor ? editor.name : id;
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Main installation function
+ */
+async function install() {
+  // Validate templates directory exists
+  if (!fs.existsSync(templatesDir)) {
+    console.log(`⚠ Warning: Templates folder not found at ${templatesDir}`);
+    console.log(`\n✅ Setup completed (no templates to copy)\n`);
+    process.exit(0);
+  }
+
+  // Prompt for editor selection
+  const selectedEditorIds = await promptEditorSelection();
+
+  if (selectedEditorIds.length === 0) {
+    console.log('\n⚠ No editors selected. Setup cancelled.\n');
+    process.exit(0);
+  }
+
+  // Display selected editors
+  const selectedNames = getSelectedEditorNames(selectedEditorIds);
+  console.log(`\n📦 Installing configuration for: ${selectedNames.join(', ')}\n`);
+
+  // Get folders to copy
+  const foldersToCopy = getFoldersToCopy(selectedEditorIds);
+
+  // Copy files
+  const createdFiles = copyTemplateFiles(foldersToCopy);
+
+  // Display results
   if (createdFiles.length > 0) {
     console.log(`✓ Created ${createdFiles.length} file(s)/folder(s):`);
     createdFiles.forEach(file => {
@@ -215,6 +373,10 @@ async function install() {
 
   console.log(`\n✅ Setup completed successfully!\n`);
 }
+
+// ============================================================================
+// ENTRY POINT
+// ============================================================================
 
 install().catch(err => {
   console.error('Error during installation:', err);
